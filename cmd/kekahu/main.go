@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"syscall"
 	"time"
 
 	"github.com/bbengfort/kekahu"
@@ -21,10 +23,10 @@ func main() {
 
 	app.Commands = []cli.Command{
 		{
-			Name:   "run",
+			Name:   "start",
 			Usage:  "run the kahu heartbeat program",
 			Before: initClient,
-			Action: run,
+			Action: start,
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:   "d, delay",
@@ -70,6 +72,41 @@ func main() {
 				},
 			},
 		},
+		{
+			Name:   "stop",
+			Usage:  "if a pid file exists kill the kekahu service",
+			Action: stop,
+		},
+		{
+			Name:   "reload",
+			Usage:  "stop then start the kekahu service",
+			Before: initClient,
+			Action: reload,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:   "d, delay",
+					Usage:  "parsable duration of the delay between heartbeats",
+					Value:  "1m",
+					EnvVar: "KEKAHU_INTERVAL",
+				},
+				cli.StringFlag{
+					Name:   "k, key",
+					Usage:  "api key of the local host",
+					EnvVar: "KEKAHU_API_KEY",
+				},
+				cli.StringFlag{
+					Name:   "u, url",
+					Usage:  "kahu service url if different from default",
+					Value:  kekahu.DefaultKahuURL,
+					EnvVar: "KEKAHU_URL",
+				},
+			},
+		},
+		{
+			Name:   "status",
+			Usage:  "print the pid status of the kekahu service",
+			Action: status,
+		},
 	}
 
 	// Run the CLI program
@@ -92,7 +129,7 @@ func initClient(c *cli.Context) error {
 }
 
 // Run the keep-alive server
-func run(c *cli.Context) error {
+func start(c *cli.Context) error {
 	delay, err := time.ParseDuration(c.String("delay"))
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -110,6 +147,52 @@ func sync(c *cli.Context) error {
 
 	if err := client.Sync(c.String("path")); err != nil {
 		return cli.NewExitError(err.Error(), 1)
+	}
+
+	return nil
+}
+
+//===========================================================================
+// Commands
+//===========================================================================
+
+// Send a kill signal to the process defined by the PID
+func stop(c *cli.Context) error {
+	pid := new(kekahu.PID)
+	if err := pid.Load(); err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+
+	// Get the process from the os
+	proc, err := os.FindProcess(pid.PID)
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+
+	// Kill the process
+	if err := proc.Signal(syscall.SIGTERM); err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+
+	return nil
+}
+
+// Call the stop function, then call the start function.
+// Don't use this probably.
+func reload(c *cli.Context) error {
+	stop(c)
+	time.Sleep(1 * time.Second)
+	start(c)
+	return nil
+}
+
+// Indicate the status of the service based on the pid
+func status(c *cli.Context) error {
+	pid := new(kekahu.PID)
+	if err := pid.Load(); err != nil {
+		fmt.Printf("kekahu is not running; no pid exists at %s\n", pid.Path())
+	} else {
+		fmt.Printf("kekahu is running with pid %d from %s\n", pid.PID, pid.Path())
 	}
 
 	return nil

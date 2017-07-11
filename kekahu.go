@@ -9,6 +9,9 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/bbengfort/x/net"
@@ -59,8 +62,10 @@ type KeKahu struct {
 	url    *url.URL      // URL of the Kahu service
 	apikey string        // API Key to access the Kahu service with
 	client *http.Client  // HTTP client to perform requests
+	pid    *PID          // Reference to current PID file
 	delay  time.Duration // Interval between Heartbeats
 	echan  chan error    // Channel to listen for non-fatal errors on
+	done   chan bool     // Channel to listen for shutdown signal
 }
 
 // Run the keep-alive heartbeat service with the interval specified. The
@@ -68,14 +73,38 @@ type KeKahu struct {
 // as fatal, exiting the program - otherwise it will continue running until
 // it is shutdown by OS signals.
 func (k *KeKahu) Run(delay time.Duration) error {
+	// Create the PID file
+	k.pid = new(PID)
+	if err := k.pid.Save(); err != nil {
+		return err
+	}
+
+	// Run the OS signal handlers
+	go k.signalHandler()
+
+	// Start the heartbeat parameters
 	k.delay = delay
 	k.echan = make(chan error)
+	k.done = make(chan bool)
 	k.Heartbeat()
 
+	// Wait for any errors and log them
 	for {
-		err := <-k.echan
-		log.Println(err)
+		select {
+		case err := <-k.echan:
+			log.Println(err)
+		case done := <-k.done:
+			if done {
+				break
+			}
+		}
 	}
+}
+
+// Shutdown the KeKahu service and clean up the PID file.
+func (k *KeKahu) Shutdown() error {
+	k.done <- true // Shutdown the running listener
+	return k.pid.Free()
 }
 
 // Sync the peers.json file from Kahu. If no path is specified then the peers
@@ -217,4 +246,29 @@ func (k *KeKahu) doRequest(req *http.Request) (*http.Response, error) {
 	}
 
 	return res, nil
+}
+
+//===========================================================================
+// OS Signal Handlers
+//===========================================================================
+
+func (k *KeKahu) signalHandler() {
+	// Make signal channel and register notifiers for Interupt and Terminate
+	sigchan := make(chan os.Signal, 1)
+	signal.Notify(sigchan, os.Interrupt)
+	signal.Notify(sigchan, syscall.SIGTERM)
+
+	// Block until we receive a signal on the channel
+	<-sigchan
+
+	// Defer the clean exit until the end of the function
+	defer os.Exit(0)
+
+	// Shutdown now that we've received the signal
+	err := k.Shutdown()
+	if err != nil {
+		msg := fmt.Sprintf("shutdown error: %s", err.Error())
+		log.Fatal(msg)
+		os.Exit(1)
+	}
 }
