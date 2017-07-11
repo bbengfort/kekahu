@@ -13,9 +13,6 @@ func main() {
 	// Load the .env file if it exists
 	godotenv.Load()
 
-	// Load the .env file if it exists
-	godotenv.Load()
-
 	// Instantiate the command line application
 	app := cli.NewApp()
 	app.Name = "kekahu"
@@ -25,12 +22,13 @@ func main() {
 	app.Commands = []cli.Command{
 		{
 			Name:   "run",
-			Usage:  "run the throughput experiment",
+			Usage:  "run the kahu heartbeat program",
+			Before: initClient,
 			Action: run,
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:   "i, interval",
-					Usage:  "parsable duration of heartbeat interval",
+					Name:   "d, delay",
+					Usage:  "parsable duration of the delay between heartbeats",
 					Value:  "1m",
 					EnvVar: "KEKAHU_INTERVAL",
 				},
@@ -38,6 +36,37 @@ func main() {
 					Name:   "k, key",
 					Usage:  "api key of the local host",
 					EnvVar: "KEKAHU_API_KEY",
+				},
+				cli.StringFlag{
+					Name:   "u, url",
+					Usage:  "kahu service url if different from default",
+					Value:  kekahu.DefaultKahuURL,
+					EnvVar: "KEKAHU_URL",
+				},
+			},
+		},
+		{
+			Name:   "sync",
+			Usage:  "synchronize the local peers definition",
+			Before: initClient,
+			Action: sync,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:   "p, path",
+					Usage:  "path to write the peers.json file (if empty writes to home directory)",
+					Value:  "",
+					EnvVar: "PEERS_PATH",
+				},
+				cli.StringFlag{
+					Name:   "k, key",
+					Usage:  "api key of the local host",
+					EnvVar: "KEKAHU_API_KEY",
+				},
+				cli.StringFlag{
+					Name:   "u, url",
+					Usage:  "kahu service url",
+					Value:  kekahu.DefaultKahuURL,
+					EnvVar: "KEKAHU_URL",
 				},
 			},
 		},
@@ -51,14 +80,37 @@ func main() {
 // Commands
 //===========================================================================
 
+var client *kekahu.KeKahu
+
+// Initialize the kekahu client
+func initClient(c *cli.Context) error {
+	var err error
+	if client, err = kekahu.New(c.String("key"), c.String("url")); err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+	return nil
+}
+
 // Run the keep-alive server
 func run(c *cli.Context) error {
-	key := c.String("key")
-	duration, err := time.ParseDuration(c.String("interval"))
+	delay, err := time.ParseDuration(c.String("delay"))
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
 
-	kekahu.Heartbeat(key, duration)
+	if err := client.Run(delay); err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+
+	return nil
+}
+
+// Sync the local peers.json file
+func sync(c *cli.Context) error {
+
+	if err := client.Sync(c.String("path")); err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+
 	return nil
 }
