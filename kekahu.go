@@ -18,6 +18,9 @@ import (
 	"github.com/bbengfort/x/peers"
 )
 
+// Build KeKahu in debug mode
+const debug = false
+
 // DefaultKahuURL to communicate with the heartbeat service
 const DefaultKahuURL = "https://kahu.herokuapp.com"
 
@@ -192,13 +195,15 @@ func (k *KeKahu) Heartbeat() {
 		return
 	}
 
-	// Log the response
-	log.Printf(
-		"updated %s (%s) success: %t\n",
-		hb["machine"].(string),
-		hb["ipaddr"].(string),
-		hb["success"].(bool),
-	)
+	// Log the response if in debug mode
+	if debug {
+		log.Printf(
+			"updated %s (%s) success: %t\n",
+			hb["machine"].(string),
+			hb["ipaddr"].(string),
+			hb["success"].(bool),
+		)
+	}
 }
 
 //===========================================================================

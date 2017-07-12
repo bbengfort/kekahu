@@ -18,7 +18,7 @@ func main() {
 	// Instantiate the command line application
 	app := cli.NewApp()
 	app.Name = "kekahu"
-	app.Version = "0.1"
+	app.Version = "0.2"
 	app.Usage = "Keep alive client for the Kahu service"
 
 	app.Commands = []cli.Command{
