@@ -18,7 +18,7 @@ func main() {
 	// Instantiate the command line application
 	app := cli.NewApp()
 	app.Name = "kekahu"
-	app.Version = "0.2"
+	app.Version = "0.3"
 	app.Usage = "Keep alive client for the Kahu service"
 
 	app.Commands = []cli.Command{
@@ -44,6 +44,12 @@ func main() {
 					Usage:  "kahu service url if different from default",
 					Value:  kekahu.DefaultKahuURL,
 					EnvVar: "KEKAHU_URL",
+				},
+				cli.StringFlag{
+					Name:   "p, pid",
+					Usage:  "path to PID file or empty for standard location",
+					Value:  "",
+					EnvVar: "KEKAHU_PID_PATH",
 				},
 			},
 		},
@@ -76,6 +82,14 @@ func main() {
 			Name:   "stop",
 			Usage:  "if a pid file exists kill the kekahu service",
 			Action: stop,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:   "p, pid",
+					Usage:  "path to PID file or empty for standard location",
+					Value:  "",
+					EnvVar: "KEKAHU_PID_PATH",
+				},
+			},
 		},
 		{
 			Name:   "reload",
@@ -100,12 +114,26 @@ func main() {
 					Value:  kekahu.DefaultKahuURL,
 					EnvVar: "KEKAHU_URL",
 				},
+				cli.StringFlag{
+					Name:   "p, pid",
+					Usage:  "path to PID file or empty for standard location",
+					Value:  "",
+					EnvVar: "KEKAHU_PID_PATH",
+				},
 			},
 		},
 		{
 			Name:   "status",
 			Usage:  "print the pid status of the kekahu service",
 			Action: status,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:   "p, pid",
+					Usage:  "path to PID file or empty for standard location",
+					Value:  "",
+					EnvVar: "KEKAHU_PID_PATH",
+				},
+			},
 		},
 	}
 
@@ -135,7 +163,7 @@ func start(c *cli.Context) error {
 		return cli.NewExitError(err.Error(), 1)
 	}
 
-	if err := client.Run(delay); err != nil {
+	if err := client.Run(delay, c.String("pid")); err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
 
@@ -158,7 +186,7 @@ func sync(c *cli.Context) error {
 
 // Send a kill signal to the process defined by the PID
 func stop(c *cli.Context) error {
-	pid := new(kekahu.PID)
+	pid := kekahu.NewPID(c.String("pid"))
 	if err := pid.Load(); err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
@@ -170,10 +198,18 @@ func stop(c *cli.Context) error {
 	}
 
 	// Kill the process
-	if err := proc.Signal(syscall.SIGTERM); err != nil {
+	fmt.Printf("stopping process %d\n", pid.PID)
+	if err = proc.Signal(syscall.SIGTERM); err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
 
+	// Wait for the state to change in the process
+	state, err := proc.Wait()
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+
+	fmt.Printf("process exited with %s", state)
 	return nil
 }
 
@@ -188,7 +224,7 @@ func reload(c *cli.Context) error {
 
 // Indicate the status of the service based on the pid
 func status(c *cli.Context) error {
-	pid := new(kekahu.PID)
+	pid := kekahu.NewPID(c.String("pid"))
 	if err := pid.Load(); err != nil {
 		fmt.Printf("kekahu is not running; no pid exists at %s\n", pid.Path())
 	} else {

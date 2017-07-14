@@ -16,11 +16,20 @@ import (
 // PID File Management
 //===========================================================================
 
+// NewPID creates a PID object from a specified path. Pass in an empty string
+// so that the path is looked up from standard locations.
+func NewPID(path string) *PID {
+	return &PID{
+		path: path,
+	}
+}
+
 // PID describes the server process and is accessed by both the server and the
 // command line client in order to facilitate cross-process communication.
 type PID struct {
-	PID  int `json:"pid"`  // The process id assigned by the OS
-	PPID int `json:"ppid"` // The parent process id
+	PID  int    `json:"pid"`  // The process id assigned by the OS
+	PPID int    `json:"ppid"` // The parent process id
+	path string // The path to the PID file
 }
 
 // Path returns the best possible PID file for the current system, by first
@@ -30,14 +39,22 @@ type PID struct {
 // Note that this method should always return a single PID path for a running
 // instance of the FluidFS file system in order to prevent confusion.
 func (pid *PID) Path() string {
-	filename := "kekahu.pid"
 
-	usr, err := user.Current()
-	if err == nil {
-		return filepath.Join(usr.HomeDir, ".fluidfs", filename)
+	// If the PID path is empty, construct one.
+	if pid.path == "" {
+		filename := "kekahu.pid"
+
+		usr, err := user.Current()
+		if err == nil {
+			// Save the PID in the user's home directory
+			pid.path = filepath.Join(usr.HomeDir, ".fluidfs", filename)
+		} else {
+			// If no user (e.g. root), save it in /var/run
+			pid.path = filepath.Join("/", "var", "run", filename)
+		}
 	}
 
-	return filepath.Join("/", "var", "run", filename)
+	return pid.path
 }
 
 // Save the PID file to disk after first determining the process id and the

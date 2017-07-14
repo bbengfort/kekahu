@@ -29,7 +29,8 @@ Most of KeKahu is configured through the environment, though command line option
 - `$KEKAHU_API_KEY`: the Kahu API key for this machine
 - `$KEKAHU_URL` (optional): url of the Kahu API
 - `$KEKAHU_INTERVAL` (optional): interval between heartbeats
-- `$PEERS_PATH` (optional): location on disk to store network peers.
+- `$KEKAHU_PID_PATH` (optional): path on disk to pid file
+- `$PEERS_PATH` (optional): location on disk to store network peers
 
 Once these environment variables are set, you can use the kekahu application. For example, to synchronize network peers:
 
@@ -51,6 +52,7 @@ Type=simple
 Environment=KEKAHU_API_KEY=mykey
 Environment=KEKAHU_URL=myurl
 Environment=KEKAHU_INTERVAL=myinterval
+Environment=KEKAHU_PID_PATH=/path/to/kekahu.pid
 Environment=PEERS_PATH=mypath
 ExecStart=/usr/local/bin/kekahu start
 ExecReload=/usr/local/bin/kekahu reload
@@ -81,3 +83,51 @@ $ sudy journalctl -u kekahu
 ```
 
 This should show everything written to stdout and stderr from the application.
+
+## Launchd
+
+We can also run kekahu as a user-agent on OS X - meaning that it will only run while the user is logged in. Create a file called `~/Library/LaunchAgents/com.bengfort.kekahu.plist` and add the following configuration:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.bengfort.kekahu</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/kekahu</string>
+        <string>start</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>KEKAHU_API_KEY</key>
+        <string>mykey</string>
+
+        <key>KEKAHU_URL</key>
+        <string>myurl</string>
+
+        <key>KEKAHU_INTERVAL</key>
+        <string>myinterval</string>
+
+        <key>KEKAHU_PID_PATH</key>
+        <string>/path/to/kekahu.pid</string>
+
+        <key>PEERS_PATH</key>
+        <string>mypath</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/kekahu.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/kekahu.err</string>
+</dict>
+</plist>
+```

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -18,14 +19,28 @@ import (
 	"github.com/bbengfort/x/peers"
 )
 
-// Build KeKahu in debug mode
-const debug = false
-
 // DefaultKahuURL to communicate with the heartbeat service
 const DefaultKahuURL = "https://kahu.herokuapp.com"
 
 // DefaultAPITimeout to wait for responses from the Kahu server
 const DefaultAPITimeout = time.Second * 5
+
+//===========================================================================
+// Package Initialization
+//===========================================================================
+
+// Initialize the package and random numbers, etc.
+func init() {
+	// Set the random seed to something different each time.
+	rand.Seed(time.Now().Unix())
+
+	// Initialize our debug logging with our prefix
+	logger = log.New(os.Stdout, "[kekahu] ", log.Lmicroseconds)
+}
+
+//===========================================================================
+// Kekahu Client
+//===========================================================================
 
 // New constructs a KeKahu client from an api key and url pair. If a URL is
 // not specified (e.g. an empty string) then the DefaultKahuURL is used. This
@@ -75,12 +90,13 @@ type KeKahu struct {
 // service will log any http errors to to standard out and any other errors
 // as fatal, exiting the program - otherwise it will continue running until
 // it is shutdown by OS signals.
-func (k *KeKahu) Run(delay time.Duration) error {
+func (k *KeKahu) Run(delay time.Duration, pid string) error {
 	// Create the PID file
-	k.pid = new(PID)
+	k.pid = NewPID(pid)
 	if err := k.pid.Save(); err != nil {
 		return err
 	}
+	debug("pid file saved to %s", k.pid.Path())
 
 	// Run the OS signal handlers
 	go k.signalHandler()
@@ -89,23 +105,27 @@ func (k *KeKahu) Run(delay time.Duration) error {
 	k.delay = delay
 	k.echan = make(chan error)
 	k.done = make(chan bool)
-	k.Heartbeat()
+	go k.Heartbeat()
 
 	// Wait for any errors and log them
+outer:
 	for {
 		select {
 		case err := <-k.echan:
-			log.Println(err)
+			warne(err)
 		case done := <-k.done:
 			if done {
-				break
+				break outer
 			}
 		}
 	}
+
+	return nil
 }
 
 // Shutdown the KeKahu service and clean up the PID file.
 func (k *KeKahu) Shutdown() error {
+	info("shutting down")
 	k.done <- true // Shutdown the running listener
 	return k.pid.Free()
 }
@@ -152,6 +172,8 @@ func (k *KeKahu) Sync(path string) error {
 // the application. These errors are not fatal and do not cause the heartbeat
 // interval to stop.
 func (k *KeKahu) Heartbeat() {
+	trace("executing heartbeat")
+
 	// Schedule the next heartbeat after this function is complete
 	defer time.AfterFunc(k.delay, k.Heartbeat)
 
@@ -196,14 +218,12 @@ func (k *KeKahu) Heartbeat() {
 	}
 
 	// Log the response if in debug mode
-	if debug {
-		log.Printf(
-			"updated %s (%s) success: %t\n",
-			hb["machine"].(string),
-			hb["ipaddr"].(string),
-			hb["success"].(bool),
-		)
-	}
+	debug(
+		"updated %s (%s) success: %t\n",
+		hb["machine"].(string),
+		hb["ipaddr"].(string),
+		hb["success"].(bool),
+	)
 }
 
 //===========================================================================
@@ -234,6 +254,7 @@ func (k *KeKahu) newRequest(method, endpoint string, body io.Reader) (*http.Requ
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
+	trace("created %s request to %s", method, url)
 	return req, nil
 }
 
@@ -243,6 +264,8 @@ func (k *KeKahu) doRequest(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return res, err
 	}
+
+	debug("%s %s %s", req.Method, req.URL.String(), res.Status)
 
 	// Check the status from the client
 	if res.StatusCode != 200 {
