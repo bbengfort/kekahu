@@ -79,7 +79,7 @@ $ sudo systemctl start kekahu
 You can check the status of the service to see if it started correctly, or use kekahu directly to check the status. In order to view the log files use the following command:
 
 ```
-$ sudy journalctl -u kekahu
+$ sudu journalctl -u kekahu
 ```
 
 This should show everything written to stdout and stderr from the application.
