@@ -18,7 +18,7 @@ func main() {
 	// Instantiate the command line application
 	app := cli.NewApp()
 	app.Name = "kekahu"
-	app.Version = "0.3"
+	app.Version = "0.4"
 	app.Usage = "Keep alive client for the Kahu service"
 
 	app.Commands = []cli.Command{
@@ -64,6 +64,45 @@ func main() {
 					Usage:  "path to write the peers.json file (if empty writes to home directory)",
 					Value:  "",
 					EnvVar: "PEERS_PATH",
+				},
+				cli.StringFlag{
+					Name:   "k, key",
+					Usage:  "api key of the local host",
+					EnvVar: "KEKAHU_API_KEY",
+				},
+				cli.StringFlag{
+					Name:   "u, url",
+					Usage:  "kahu service url",
+					Value:  kekahu.DefaultKahuURL,
+					EnvVar: "KEKAHU_URL",
+				},
+			},
+		},
+		{
+			Name:   "ping",
+			Usage:  "ping another kekahu server to determine latency",
+			Before: initClient,
+			Action: ping,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "s, source",
+					Usage: "name of the source host (default hostname)",
+					Value: "",
+				},
+				cli.StringFlag{
+					Name:  "t, target",
+					Usage: "name of the target host",
+					Value: "",
+				},
+				cli.StringFlag{
+					Name:  "a, addr",
+					Usage: "ip address or domain of target host",
+					Value: "",
+				},
+				cli.Uint64Flag{
+					Name:  "n, number",
+					Usage: "number of pings to send",
+					Value: 1,
 				},
 				cli.StringFlag{
 					Name:   "k, key",
@@ -176,6 +215,21 @@ func sync(c *cli.Context) error {
 	if err := client.Sync(c.String("path")); err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
+
+	return nil
+}
+
+// Ping the remote host to determine latency
+func ping(c *cli.Context) error {
+	source, targets := client.Neighbors()
+	fmt.Println(source)
+	fmt.Println(targets)
+
+	// for i := uint64(0); i < c.Uint64("number"); i++ {
+	// 	if _, err := client.Ping(c.String("source"), c.String("target"), c.String("addr"), i); err != nil {
+	// 		return cli.NewExitError(err.Error(), 1)
+	// 	}
+	// }
 
 	return nil
 }

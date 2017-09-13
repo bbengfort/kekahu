@@ -11,12 +11,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/signal"
-	"syscall"
+	"sync"
 	"time"
 
 	"github.com/bbengfort/x/net"
 	"github.com/bbengfort/x/peers"
+	"github.com/bbengfort/x/stats"
 )
 
 // DefaultKahuURL to communicate with the heartbeat service
@@ -66,7 +66,14 @@ func New(api, kahuURL string) (*KeKahu, error) {
 	// Create the HTTP client
 	client := &http.Client{Timeout: DefaultAPITimeout}
 
-	kekahu := &KeKahu{url: url, apikey: api, client: client}
+	// Create the Echo server
+	server := new(Server)
+	server.Init("", "")
+
+	// Create the ping latencies map
+	latency := make(map[string]*stats.Benchmark)
+
+	kekahu := &KeKahu{url: url, apikey: api, client: client, server: server, latency: latency}
 	return kekahu, nil
 }
 
@@ -80,10 +87,14 @@ type KeKahu struct {
 	url    *url.URL      // URL of the Kahu service
 	apikey string        // API Key to access the Kahu service with
 	client *http.Client  // HTTP client to perform requests
+	server *Server       // Echo server to respond to ping requests
 	pid    *PID          // Reference to current PID file
 	delay  time.Duration // Interval between Heartbeats
 	echan  chan error    // Channel to listen for non-fatal errors on
 	done   chan bool     // Channel to listen for shutdown signal
+
+	// Ping latency to other peers in the network
+	latency map[string]*stats.Benchmark
 }
 
 // Run the keep-alive heartbeat service with the interval specified. The
@@ -98,13 +109,20 @@ func (k *KeKahu) Run(delay time.Duration, pid string) error {
 	}
 	debug("pid file saved to %s", k.pid.Path())
 
-	// Run the OS signal handlers
-	go k.signalHandler()
-
-	// Start the heartbeat parameters
-	k.delay = delay
+	// Initialize the listener channels
 	k.echan = make(chan error)
-	k.done = make(chan bool)
+	k.done = make(chan bool, 1)
+
+	// Run the OS signal handlers
+	go signalHandler(k.Shutdown)
+
+	// Start the local echo server
+	if err := k.server.Run(k.echan); err != nil {
+		return err
+	}
+
+	// Start the heartbeat
+	k.delay = delay
 	go k.Heartbeat()
 
 	// Wait for any errors and log them
@@ -124,10 +142,23 @@ outer:
 }
 
 // Shutdown the KeKahu service and clean up the PID file.
-func (k *KeKahu) Shutdown() error {
-	info("shutting down")
-	k.done <- true // Shutdown the running listener
-	return k.pid.Free()
+func (k *KeKahu) Shutdown() (err error) {
+	info("shutting down the kekahu service")
+
+	// Shutdown the server
+	if err = k.server.Shutdown(); err != nil {
+		k.echan <- err
+	}
+
+	// Free the PID file
+	if err = k.pid.Free(); err != nil {
+		k.echan <- err
+	}
+
+	// Notify the run method we're done
+	// NOTE: do this last or the cleanup proceedure won't be done.
+	k.done <- true
+	return nil
 }
 
 // Sync the peers.json file from Kahu. If no path is specified then the peers
@@ -185,12 +216,13 @@ func (k *KeKahu) Heartbeat() {
 	}
 
 	// Compose JSON to post
+	debug("public ip address is %s", ipaddr)
 	data := make(map[string]string)
 	data["ip_address"] = ipaddr
 
 	// Create encoder and buffer
 	buf := new(bytes.Buffer)
-	if err := json.NewEncoder(buf).Encode(data); err != nil {
+	if err = json.NewEncoder(buf).Encode(data); err != nil {
 		k.echan <- fmt.Errorf("could not encode heartbeat post body: %s", err)
 		return
 	}
@@ -217,13 +249,104 @@ func (k *KeKahu) Heartbeat() {
 		return
 	}
 
+	success := hb["success"].(bool)
+	active := hb["active"].(bool)
+
 	// Log the response if in debug mode
 	debug(
-		"updated %s (%s) success: %t\n",
-		hb["machine"].(string),
-		hb["ipaddr"].(string),
-		hb["success"].(bool),
+		"updated %s (%s) success: %t active: %t\n",
+		hb["machine"].(string), hb["ipaddr"].(string), success, active,
 	)
+
+	// If we're active and the heartbeat was successful then run ping routine
+	// to collect latency measurements from all other active hosts.
+	if success && active {
+		go k.Latency()
+	}
+
+}
+
+// Latency is a hard working method that sends a request to the Kahu server for
+// all targets associated with the current host, then sends a ping request to
+// each of them, measuring the latency of the ping. It then reports the results
+// of the pings back to Kahu.
+//
+// Latency is called routinely from the heartbeat method, and will only be
+// executed if the host is active and the heartbeat was successful.
+func (k *KeKahu) Latency() {
+	// Fetch the source and the targets. If there is no response, or no targets
+	// then return, we're not going to be doing any work!
+	source, targets := k.Neighbors()
+	if source == "" || targets == nil {
+		return
+	}
+
+	// Execute the pings against each of the returned sources
+	group := new(sync.WaitGroup)
+	for _, target := range targets {
+		group.Add(1)
+		go func(target map[string]string) {
+			defer group.Done()
+
+			// Get the stats object from the map
+			metrics, ok := k.latency[target["hostname"]]
+			if !ok {
+				metrics = new(stats.Benchmark)
+				k.latency[target["hostname"]] = metrics
+			}
+
+			// Send the ping and record the duration
+			latency, err := k.Ping(source, target["hostname"], target["addr"], metrics.N()+1)
+			if err != nil {
+				k.echan <- err
+				return
+			}
+
+			// Update the metrics
+			metrics.Update(latency)
+
+			// TODO: send the metrics back to Kahu
+
+		}(target)
+	}
+
+	// Wait for all pings to complete
+	group.Wait()
+}
+
+// Neighbors fetches the targets information from the Kahu server by performing
+// a GET request against the /api/latency endpoint. It returns the source name
+// of the requesting server as well as a list of target information.
+func (k *KeKahu) Neighbors() (source string, targets []map[string]string) {
+
+	type Response struct {
+		Source  string
+		Targets []map[string]string
+	}
+
+	// Create the request and post
+	req, err := k.newRequest(http.MethodGet, "/api/latency", nil)
+	if err != nil {
+		k.echan <- fmt.Errorf("could not create request: %s", err)
+		return "", nil
+	}
+
+	// Perform the request
+	res, err := k.doRequest(req)
+	if err != nil {
+		k.echan <- fmt.Errorf("could make http request: %s", err)
+		return "", nil
+	}
+
+	// Read the response from Kahu
+	defer res.Body.Close()
+	info := new(Response)
+	if err := json.NewDecoder(res.Body).Decode(&info); err != nil {
+		k.echan <- fmt.Errorf("could not parse kahu response: %s", err)
+		return "", nil
+	}
+
+	return info.Source, info.Targets
 }
 
 //===========================================================================
@@ -274,29 +397,4 @@ func (k *KeKahu) doRequest(req *http.Request) (*http.Response, error) {
 	}
 
 	return res, nil
-}
-
-//===========================================================================
-// OS Signal Handlers
-//===========================================================================
-
-func (k *KeKahu) signalHandler() {
-	// Make signal channel and register notifiers for Interupt and Terminate
-	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, os.Interrupt)
-	signal.Notify(sigchan, syscall.SIGTERM)
-
-	// Block until we receive a signal on the channel
-	<-sigchan
-
-	// Defer the clean exit until the end of the function
-	defer os.Exit(0)
-
-	// Shutdown now that we've received the signal
-	err := k.Shutdown()
-	if err != nil {
-		msg := fmt.Sprintf("shutdown error: %s", err.Error())
-		log.Fatal(msg)
-		os.Exit(1)
-	}
 }

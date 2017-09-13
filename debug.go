@@ -12,14 +12,15 @@ const (
 	Trace uint8 = iota
 	Debug
 	Info
+	Status
 	Warn
 	Silent
 )
 
 // These variables are initialized in init()
-var logLevel = Info
+var logLevel = Debug
 var logger *log.Logger
-var logLevelStrings = [...]string{"silent", "trace", "debug", "info", "warn"}
+var logLevelStrings = [...]string{"trace", "debug", "info", "status", "warn", "silent"}
 
 //===========================================================================
 // Interact with debug output
@@ -33,8 +34,8 @@ func LogLevel() string {
 // SetLogLevel modifies the log level for messages at runtime. Ensures that
 // the highest level that can be set is the trace level.
 func SetLogLevel(level uint8) {
-	if level > Trace {
-		level = Trace
+	if level > Silent {
+		level = Silent
 	}
 
 	logLevel = level
@@ -62,9 +63,15 @@ func warn(msg string, a ...interface{}) {
 	print(Warn, msg, a...)
 }
 
-// Wrapper to warn for an error
+// Helper function to simply warn about an error received.
 func warne(err error) {
 	warn(err.Error())
+}
+
+// Prints to the standard logger if level is status or greater; arguments are
+// handled in the manner of log.Printf, but a newline is appended.
+func status(msg string, a ...interface{}) {
+	print(Status, msg, a...)
 }
 
 // Prints to the standard logger if level is info or greater; arguments are
