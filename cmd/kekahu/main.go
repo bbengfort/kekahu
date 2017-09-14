@@ -31,7 +31,7 @@ func main() {
 				cli.StringFlag{
 					Name:   "d, delay",
 					Usage:  "parsable duration of the delay between heartbeats",
-					Value:  "1m",
+					Value:  kekahu.DefaultInterval.String(),
 					EnvVar: "KEKAHU_INTERVAL",
 				},
 				cli.StringFlag{

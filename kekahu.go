@@ -25,6 +25,9 @@ const DefaultKahuURL = "https://kahu.herokuapp.com"
 // DefaultAPITimeout to wait for responses from the Kahu server
 const DefaultAPITimeout = time.Second * 5
 
+// DefaultInterval between heartbeat messages
+const DefaultInterval = time.Minute * 1
+
 //===========================================================================
 // Package Initialization
 //===========================================================================
@@ -261,7 +264,7 @@ func (k *KeKahu) Heartbeat() {
 	// If we're active and the heartbeat was successful then run ping routine
 	// to collect latency measurements from all other active hosts.
 	if success && active {
-		go k.Latency()
+		// go k.Latency()
 	}
 
 }
@@ -274,6 +277,8 @@ func (k *KeKahu) Heartbeat() {
 // Latency is called routinely from the heartbeat method, and will only be
 // executed if the host is active and the heartbeat was successful.
 func (k *KeKahu) Latency() {
+	trace("executing latency measures to neighbors")
+
 	// Fetch the source and the targets. If there is no response, or no targets
 	// then return, we're not going to be doing any work!
 	source, targets := k.Neighbors()
