@@ -106,6 +106,7 @@ func (s *Server) Ping(ctx context.Context, in *ping.Packet) (*ping.Packet, error
 func (k *KeKahu) Ping(source, target, addr string, seq uint64) (time.Duration, error) {
 	// First compose the address
 	addr = resolveAddr(addr)
+	debug("sending ping to %s", addr)
 
 	// Create the message
 	msg := &ping.Packet{

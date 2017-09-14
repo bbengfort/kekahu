@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 )
 
 // Latency is a hard working method that sends a request to the Kahu server for
@@ -37,7 +38,7 @@ func (k *KeKahu) Latency(report bool) {
 			latency, err := k.Ping(source, target["hostname"], target["addr"], sequence)
 			if err != nil {
 				k.echan <- err
-				return
+				latency = time.Duration(0)
 			}
 
 			// Update the metrics

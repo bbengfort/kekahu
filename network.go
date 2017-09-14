@@ -32,8 +32,8 @@ func (n *Network) Update(host string, latencies ...time.Duration) {
 
 // Next returns the next sequence id for the specified host.
 func (n *Network) Next(host string) uint64 {
-	n.RLock()
-	defer n.RUnlock()
+	n.Lock()
+	defer n.Unlock()
 	metrics := n.get(host)
 	return metrics.N() + 1
 }

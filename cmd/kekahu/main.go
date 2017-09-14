@@ -207,7 +207,7 @@ func sync(c *cli.Context) error {
 
 // Ping the remote host to determine latency
 func ping(c *cli.Context) error {
-	kekahu.SetLogLevel(kekahu.Silent)
+	kekahu.SetLogLevel(kekahu.Debug)
 
 	// Send the pings to all the hosts
 	for i := uint64(0); i < c.Uint64("number"); i++ {
