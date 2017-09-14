@@ -19,7 +19,7 @@ func main() {
 	// Instantiate the command line application
 	app := cli.NewApp()
 	app.Name = "kekahu"
-	app.Version = "0.4"
+	app.Version = "0.5"
 	app.Usage = "Keep alive client for the Kahu service"
 
 	app.Commands = []cli.Command{
@@ -52,6 +52,12 @@ func main() {
 					Value:  "",
 					EnvVar: "KEKAHU_PID_PATH",
 				},
+				cli.UintFlag{
+					Name:   "verbosity",
+					Usage:  "set log level from 0-4, lower is more verbose",
+					Value:  2,
+					EnvVar: "ALIA_VERBOSITY",
+				},
 			},
 		},
 		{
@@ -77,6 +83,12 @@ func main() {
 					Value:  kekahu.DefaultKahuURL,
 					EnvVar: "KEKAHU_URL",
 				},
+				cli.UintFlag{
+					Name:   "verbosity",
+					Usage:  "set log level from 0-4, lower is more verbose",
+					Value:  2,
+					EnvVar: "ALIA_VERBOSITY",
+				},
 			},
 		},
 		{
@@ -100,6 +112,12 @@ func main() {
 					Usage:  "kahu service url",
 					Value:  kekahu.DefaultKahuURL,
 					EnvVar: "KEKAHU_URL",
+				},
+				cli.UintFlag{
+					Name:   "verbosity",
+					Usage:  "set log level from 0-4, lower is more verbose",
+					Value:  2,
+					EnvVar: "ALIA_VERBOSITY",
 				},
 			},
 		},
@@ -145,6 +163,12 @@ func main() {
 					Value:  "",
 					EnvVar: "KEKAHU_PID_PATH",
 				},
+				cli.UintFlag{
+					Name:   "verbosity",
+					Usage:  "set log level from 0-4, lower is more verbose",
+					Value:  2,
+					EnvVar: "ALIA_VERBOSITY",
+				},
 			},
 		},
 		{
@@ -174,6 +198,10 @@ var client *kekahu.KeKahu
 
 // Initialize the kekahu client
 func initClient(c *cli.Context) error {
+	// Set the logging level
+	verbose := c.Uint("verbosity")
+	kekahu.SetLogLevel(uint8(verbose))
+
 	var err error
 	if client, err = kekahu.New(c.String("key"), c.String("url")); err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -183,6 +211,10 @@ func initClient(c *cli.Context) error {
 
 // Run the keep-alive server
 func start(c *cli.Context) error {
+	// Set the logging level
+	verbose := c.Uint("verbosity")
+	kekahu.SetLogLevel(uint8(verbose))
+
 	delay, err := time.ParseDuration(c.String("delay"))
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -197,6 +229,9 @@ func start(c *cli.Context) error {
 
 // Sync the local peers.json file
 func sync(c *cli.Context) error {
+	// Set the logging level
+	verbose := c.Uint("verbosity")
+	kekahu.SetLogLevel(uint8(verbose))
 
 	if err := client.Sync(c.String("path")); err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -207,7 +242,7 @@ func sync(c *cli.Context) error {
 
 // Ping the remote host to determine latency
 func ping(c *cli.Context) error {
-	kekahu.SetLogLevel(kekahu.Debug)
+	kekahu.SetLogLevel(kekahu.Silent)
 
 	// Send the pings to all the hosts
 	for i := uint64(0); i < c.Uint64("number"); i++ {
