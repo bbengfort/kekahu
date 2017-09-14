@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"syscall"
@@ -84,21 +85,6 @@ func main() {
 			Before: initClient,
 			Action: ping,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "s, source",
-					Usage: "name of the source host (default hostname)",
-					Value: "",
-				},
-				cli.StringFlag{
-					Name:  "t, target",
-					Usage: "name of the target host",
-					Value: "",
-				},
-				cli.StringFlag{
-					Name:  "a, addr",
-					Usage: "ip address or domain of target host",
-					Value: "",
-				},
 				cli.Uint64Flag{
 					Name:  "n, number",
 					Usage: "number of pings to send",
@@ -221,15 +207,17 @@ func sync(c *cli.Context) error {
 
 // Ping the remote host to determine latency
 func ping(c *cli.Context) error {
-	source, targets := client.Neighbors()
-	fmt.Println(source)
-	fmt.Println(targets)
+	kekahu.SetLogLevel(kekahu.Silent)
 
-	// for i := uint64(0); i < c.Uint64("number"); i++ {
-	// 	if _, err := client.Ping(c.String("source"), c.String("target"), c.String("addr"), i); err != nil {
-	// 		return cli.NewExitError(err.Error(), 1)
-	// 	}
-	// }
+	// Send the pings to all the hosts
+	for i := uint64(0); i < c.Uint64("number"); i++ {
+		client.Latency(false)
+	}
+
+	// Report the averages
+	metrics := client.Metrics()
+	data, _ := json.MarshalIndent(metrics, "", "  ")
+	fmt.Println(string(data))
 
 	return nil
 }
