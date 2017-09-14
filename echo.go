@@ -1,7 +1,6 @@
 package kekahu
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"os"
@@ -9,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bbengfort/kekahu/ping"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
