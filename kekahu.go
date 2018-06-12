@@ -1,6 +1,7 @@
 package kekahu
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,13 +15,20 @@ import (
 )
 
 // DefaultKahuURL to communicate with the heartbeat service
-const DefaultKahuURL = "https://kahu.herokuapp.com"
+const DefaultKahuURL = "https://kahu.bengfort.com"
 
 // DefaultAPITimeout to wait for responses from the Kahu server
 const DefaultAPITimeout = time.Second * 5
 
 // DefaultInterval between heartbeat messages
 const DefaultInterval = time.Minute * 1
+
+// Endpoints on the Kahu RESTful API
+const (
+	HeartbeatEndpoint = "/api/heartbeat/"
+	LatencyEndpoint   = "/api/latency/"
+	NeighborsEndpoint = "/api/latency/neighbors/"
+)
 
 //===========================================================================
 // Package Initialization
@@ -86,7 +94,6 @@ type KeKahu struct {
 	apikey  string        // API Key to access the Kahu service with
 	client  *http.Client  // HTTP client to perform requests
 	server  *Server       // Echo server to respond to ping requests
-	pid     *PID          // Reference to current PID file
 	delay   time.Duration // Interval between Heartbeats
 	echan   chan error    // Channel to listen for non-fatal errors on
 	done    chan bool     // Channel to listen for shutdown signal
@@ -98,13 +105,6 @@ type KeKahu struct {
 // as fatal, exiting the program - otherwise it will continue running until
 // it is shutdown by OS signals.
 func (k *KeKahu) Run(delay time.Duration, pid string) error {
-	// Create the PID file
-	k.pid = NewPID(pid)
-	if err := k.pid.Save(); err != nil {
-		return err
-	}
-	debug("pid file saved to %s", k.pid.Path())
-
 	// Initialize the listener channels
 	k.echan = make(chan error)
 	k.done = make(chan bool, 1)
@@ -143,11 +143,6 @@ func (k *KeKahu) Shutdown() (err error) {
 
 	// Shutdown the server
 	if err = k.server.Shutdown(); err != nil {
-		k.echan <- err
-	}
-
-	// Free the PID file
-	if err = k.pid.Free(); err != nil {
 		k.echan <- err
 	}
 
@@ -208,8 +203,17 @@ func (k *KeKahu) doRequest(req *http.Request) (*http.Response, error) {
 	return res, nil
 }
 
-// Parse the response into a JSON map interface object
-func (k *KeKahu) parseResponse(res *http.Response) (map[string]interface{}, error) {
+// Encode a generic request to the Kahu API into a buffer with JSON data
+func encodeRequest(data interface{}) (body io.Reader, err error) {
+	buf := new(bytes.Buffer)
+	if err := json.NewEncoder(buf).Encode(data); err != nil {
+		return nil, fmt.Errorf("could not encode request: %s", err)
+	}
+	return buf, nil
+}
+
+// Parse a generic response from the Kahu API into a JSON map interface object
+func parseResponse(res *http.Response) (map[string]interface{}, error) {
 	defer res.Body.Close()
 	info := make(map[string]interface{})
 	if err := json.NewDecoder(res.Body).Decode(&info); err != nil {
