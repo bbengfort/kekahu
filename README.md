@@ -131,3 +131,7 @@ We can also run kekahu as a user-agent on OS X - meaning that it will only run w
 </dict>
 </plist>
 ```
+
+## Notes
+
+- [go install vs build](https://pocketgophers.com/go-install-vs-go-build/)

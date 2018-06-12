@@ -19,7 +19,7 @@ func main() {
 	// TODO: keep KeKahu version consistent with Kahu version
 	app := cli.NewApp()
 	app.Name = "kekahu"
-	app.Version = "1.1"
+	app.Version = "1.1.1"
 	app.Usage = "Keep alive client for the Kahu service"
 
 	app.Commands = []cli.Command{
@@ -175,9 +175,9 @@ func sync(c *cli.Context) error {
 func ping(c *cli.Context) error {
 	kekahu.SetLogLevel(kekahu.Silent)
 
-	// Send the pings to all the hosts
-	for i := uint64(0); i < c.Uint64("number"); i++ {
-		client.Latency(false)
+	// Send the pings
+	if err := client.SendNPings(c.Uint64("number")); err != nil {
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	// Report the averages

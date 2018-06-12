@@ -22,12 +22,14 @@ func (k *KeKahu) Latency(report bool) {
 	// Fetch the source and the targets. If there is no response, or no targets
 	// then return, we're not going to be doing any work!
 	source, targets := k.Neighbors()
-	if source == "" || targets == nil {
+	if source == "" || targets == nil || len(targets) == 0 {
+		debug("no active neighbors to ping")
 		return
 	}
 
 	// Execute the pings against each of the returned sources
 	group := new(sync.WaitGroup)
+	collect := make(chan *UpdateLatencyRequest, len(targets))
 	for _, target := range targets {
 		group.Add(1)
 		go func(target *Neighbor) {
@@ -37,37 +39,44 @@ func (k *KeKahu) Latency(report bool) {
 			sequence := k.network.Next(target.Hostname)
 			latency, err := k.Ping(source, target.Hostname, target.IPAddr, sequence)
 			if err != nil {
-				k.echan <- err
+				warne(err) // Don't send to echan or ping is blocked
 				latency = time.Duration(0)
 			}
 
 			// Update the metrics
 			k.network.Update(target.Hostname, latency)
 
-			// Send the metrics back to Kahu if report is true
-			if report {
-				if err := k.latency(target.Hostname, latency); err != nil {
-					k.echan <- err
-					return
-				}
-			}
+			// Create the update request for collection
+			update := new(UpdateLatencyRequest)
+			update.Init(target.Hostname, latency)
+			collect <- update
 
 		}(target)
 	}
 
-	// Wait for all pings to complete
-	group.Wait()
+	// Wait for all pings to complete and close the collect
+	go func() {
+		group.Wait()
+		close(collect)
+	}()
+
+	// Gather all the results
+	requests := make(UpdateLatencyRequests, 0, len(targets))
+	for update := range collect {
+		requests = append(requests, update)
+	}
+
+	// Send the metrics back to Kahu if report is true
+	if report {
+		if err := k.UpdateLatency(requests); err != nil {
+			k.echan <- err
+		}
+	}
 }
 
-// latency is a helper method to send the latency information for the
+// UpdateLatency is a helper method to send the latency information for the
 // specified host to the Kahu API.
-func (k *KeKahu) latency(target string, latency time.Duration) error {
-	// Compose JSON to post
-	data := make(UpdateLatencyRequests, 0)
-	update := new(UpdateLatencyRequest)
-	update.Init(target, latency)
-	data = append(data, update)
-
+func (k *KeKahu) UpdateLatency(data UpdateLatencyRequests) error {
 	// Create encoder and buffer
 	buf := new(bytes.Buffer)
 	if err := json.NewEncoder(buf).Encode(data); err != nil {

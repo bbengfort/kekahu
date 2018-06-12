@@ -18,7 +18,7 @@ func (k *KeKahu) Sync(path string) error {
 	}
 
 	// Create the request to the Kahu service
-	req, err := k.newRequest(http.MethodGet, "/api/replicas", nil)
+	req, err := k.newRequest(http.MethodGet, ReplicasEndpoint, nil)
 	if err != nil {
 		return err
 	}

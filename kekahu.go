@@ -28,6 +28,7 @@ const (
 	HeartbeatEndpoint = "/api/heartbeat/"
 	LatencyEndpoint   = "/api/latency/"
 	NeighborsEndpoint = "/api/latency/neighbors/"
+	ReplicasEndpoint  = "/api/replicas/"
 )
 
 //===========================================================================

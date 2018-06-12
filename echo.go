@@ -16,7 +16,7 @@ import (
 const DefaultAddr = ":3284"
 
 // DefaultPingTimeout to wait for an echo response from a server (e.g. TTL)
-const DefaultPingTimeout = time.Second * 2
+const DefaultPingTimeout = time.Second * 10
 
 //===========================================================================
 // Echo Server
