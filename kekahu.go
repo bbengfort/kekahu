@@ -21,7 +21,7 @@ const DefaultKahuURL = "https://kahu.bengfort.com"
 const DefaultAPITimeout = time.Second * 5
 
 // DefaultInterval between heartbeat messages
-const DefaultInterval = time.Minute * 1
+const DefaultInterval = time.Minute * 2
 
 // Endpoints on the Kahu RESTful API
 const (
