@@ -14,7 +14,7 @@ import (
 func (k *KeKahu) Sync(path string) error {
 	// Determine the path to synchronize the peers to.
 	if path == "" {
-		path = peers.Path()
+		path = k.config.PeersPath
 	}
 
 	// Create the request to the Kahu service

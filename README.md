@@ -52,11 +52,8 @@ Type=simple
 Environment=KEKAHU_API_KEY=mykey
 Environment=KEKAHU_URL=myurl
 Environment=KEKAHU_INTERVAL=myinterval
-Environment=KEKAHU_PID_PATH=/path/to/kekahu.pid
 Environment=PEERS_PATH=mypath
 ExecStart=/usr/local/bin/kekahu start
-ExecReload=/usr/local/bin/kekahu reload
-ExecStop=/usr/local/bin/kekahu stop
 Restart=on-abort
 
 [Install]
@@ -115,9 +112,6 @@ We can also run kekahu as a user-agent on OS X - meaning that it will only run w
 
         <key>KEKAHU_INTERVAL</key>
         <string>myinterval</string>
-
-        <key>KEKAHU_PID_PATH</key>
-        <string>/path/to/kekahu.pid</string>
 
         <key>PEERS_PATH</key>
         <string>mypath</string>

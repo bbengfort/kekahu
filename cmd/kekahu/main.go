@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/bbengfort/kekahu"
 	"github.com/joho/godotenv"
+	"github.com/koding/multiconfig"
 	"github.com/urfave/cli"
 )
 
@@ -19,7 +19,7 @@ func main() {
 	// TODO: keep KeKahu version consistent with Kahu version
 	app := cli.NewApp()
 	app.Name = "kekahu"
-	app.Version = "1.2"
+	app.Version = "1.2.1"
 	app.Usage = "Keep alive client for the Kahu service"
 
 	app.Commands = []cli.Command{
@@ -32,7 +32,6 @@ func main() {
 				cli.StringFlag{
 					Name:   "d, delay",
 					Usage:  "parsable duration of the delay between heartbeats",
-					Value:  kekahu.DefaultInterval.String(),
 					EnvVar: "KEKAHU_INTERVAL",
 				},
 				cli.StringFlag{
@@ -43,14 +42,12 @@ func main() {
 				cli.StringFlag{
 					Name:   "u, url",
 					Usage:  "kahu service url if different from default",
-					Value:  kekahu.DefaultKahuURL,
 					EnvVar: "KEKAHU_URL",
 				},
-				cli.UintFlag{
+				cli.IntFlag{
 					Name:   "verbosity",
 					Usage:  "set log level from 0-4, lower is more verbose",
-					Value:  2,
-					EnvVar: "ALIA_VERBOSITY",
+					EnvVar: "KEKAHU_VERBOSITY",
 				},
 			},
 		},
@@ -74,14 +71,12 @@ func main() {
 				cli.StringFlag{
 					Name:   "u, url",
 					Usage:  "kahu service url",
-					Value:  kekahu.DefaultKahuURL,
 					EnvVar: "KEKAHU_URL",
 				},
-				cli.UintFlag{
+				cli.IntFlag{
 					Name:   "verbosity",
 					Usage:  "set log level from 0-4, lower is more verbose",
-					Value:  2,
-					EnvVar: "ALIA_VERBOSITY",
+					EnvVar: "KEKAHU_VERBOSITY",
 				},
 			},
 		},
@@ -104,16 +99,19 @@ func main() {
 				cli.StringFlag{
 					Name:   "u, url",
 					Usage:  "kahu service url",
-					Value:  kekahu.DefaultKahuURL,
 					EnvVar: "KEKAHU_URL",
 				},
-				cli.UintFlag{
+				cli.IntFlag{
 					Name:   "verbosity",
 					Usage:  "set log level from 0-4, lower is more verbose",
-					Value:  2,
-					EnvVar: "ALIA_VERBOSITY",
+					EnvVar: "KEKAHU_VERBOSITY",
 				},
 			},
+		},
+		{
+			Name:   "config",
+			Usage:  "print the current KeKahu configuration",
+			Action: config,
 		},
 	}
 
@@ -129,41 +127,55 @@ var client *kekahu.KeKahu
 
 // Initialize the kekahu client
 func initClient(c *cli.Context) error {
-	// Set the logging level
-	verbose := c.Uint("verbosity")
-	kekahu.SetLogLevel(uint8(verbose))
+	config := &kekahu.Config{
+		Interval:  c.String("delay"),
+		URL:       c.String("url"),
+		Verbosity: c.Int("verbosity"),
+		APIKey:    c.String("key"),
+	}
 
 	var err error
-	if client, err = kekahu.New(c.String("key"), c.String("url")); err != nil {
+	if client, err = kekahu.New(config); err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
+	return nil
+}
+
+// Print the current configuration of KeKahu
+func config(c *cli.Context) error {
+	conf := new(kekahu.Config)
+	if err := conf.Load(); err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+
+	data, err := json.MarshalIndent(conf, "", "  ")
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+
+	if path, err := kekahu.FindConfigPath(); err == nil {
+		fmt.Println("\nConfig File\n-----------")
+		fmt.Printf("  %s\n\n", path)
+	}
+
+	fmt.Println("JSON Configuration\n------------------")
+	fmt.Println(string(data))
+	fmt.Println("\nEnvironment Variables\n---------------------")
+	env := &multiconfig.EnvironmentLoader{Prefix: "KEKAHU", CamelCase: true}
+	env.PrintEnvs(conf)
 	return nil
 }
 
 // Run the keep-alive server
 func run(c *cli.Context) error {
-	// Set the logging level
-	verbose := c.Uint("verbosity")
-	kekahu.SetLogLevel(uint8(verbose))
-
-	delay, err := time.ParseDuration(c.String("delay"))
-	if err != nil {
+	if err := client.Run(); err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
-
-	if err := client.Run(delay, c.String("pid")); err != nil {
-		return cli.NewExitError(err.Error(), 1)
-	}
-
 	return nil
 }
 
 // Sync the local peers.json file
 func sync(c *cli.Context) error {
-	// Set the logging level
-	verbose := c.Uint("verbosity")
-	kekahu.SetLogLevel(uint8(verbose))
-
 	if err := client.Sync(c.String("path")); err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}

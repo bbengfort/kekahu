@@ -3,7 +3,6 @@ package kekahu
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -13,15 +12,6 @@ import (
 	"os"
 	"time"
 )
-
-// DefaultKahuURL to communicate with the heartbeat service
-const DefaultKahuURL = "https://kahu.bengfort.com"
-
-// DefaultAPITimeout to wait for responses from the Kahu server
-const DefaultAPITimeout = time.Second * 5
-
-// DefaultInterval between heartbeat messages
-const DefaultInterval = time.Minute * 2
 
 // Endpoints on the Kahu RESTful API
 const (
@@ -51,26 +41,24 @@ func init() {
 // New constructs a KeKahu client from an api key and url pair. If a URL is
 // not specified (e.g. an empty string) then the DefaultKahuURL is used. This
 // function returns an error if no API key is provided.
-func New(api, kahuURL string) (*KeKahu, error) {
-
-	// An API key is required.
-	if api == "" {
-		return nil, errors.New("an API key is required to access the kahu service")
-	}
-
-	// Use the DefaultKahuURL if necessary.
-	if kahuURL == "" {
-		kahuURL = DefaultKahuURL
-	}
-
-	// Parse the URL
-	url, err := url.Parse(kahuURL)
-	if err != nil {
+func New(options *Config) (*KeKahu, error) {
+	// Create default configuration
+	config := new(Config)
+	if err := config.Load(); err != nil {
 		return nil, err
 	}
 
+	// Update the configuration from the options
+	if err := config.Update(options); err != nil {
+		return nil, err
+	}
+
+	// Set the logging level
+	SetLogLevel(uint8(config.Verbosity))
+
 	// Create the HTTP client
-	client := &http.Client{Timeout: DefaultAPITimeout}
+	timeout, _ := config.GetAPITimeout()
+	client := &http.Client{Timeout: timeout}
 
 	// Create the Echo server
 	server := new(Server)
@@ -80,7 +68,7 @@ func New(api, kahuURL string) (*KeKahu, error) {
 	network := new(Network)
 	network.Init()
 
-	kekahu := &KeKahu{url: url, apikey: api, client: client, server: server, network: network}
+	kekahu := &KeKahu{config: config, client: client, server: server, network: network}
 	return kekahu, nil
 }
 
@@ -91,8 +79,7 @@ func New(api, kahuURL string) (*KeKahu, error) {
 // KeKahu is the Kahu client that performs service requests to Kahu. It's
 // state manages the URL and API Key that should be passed in via New()
 type KeKahu struct {
-	url     *url.URL      // URL of the Kahu service
-	apikey  string        // API Key to access the Kahu service with
+	config  *Config       // KeKahu service configuration
 	client  *http.Client  // HTTP client to perform requests
 	server  *Server       // Echo server to respond to ping requests
 	delay   time.Duration // Interval between Heartbeats
@@ -105,7 +92,7 @@ type KeKahu struct {
 // service will log any http errors to to standard out and any other errors
 // as fatal, exiting the program - otherwise it will continue running until
 // it is shutdown by OS signals.
-func (k *KeKahu) Run(delay time.Duration, pid string) error {
+func (k *KeKahu) Run() (err error) {
 	// Initialize the listener channels
 	k.echan = make(chan error)
 	k.done = make(chan bool, 1)
@@ -114,12 +101,15 @@ func (k *KeKahu) Run(delay time.Duration, pid string) error {
 	go signalHandler(k.Shutdown)
 
 	// Start the local echo server
-	if err := k.server.Run(k.echan); err != nil {
+	if err = k.server.Run(k.echan); err != nil {
 		return err
 	}
 
 	// Start the heartbeat
-	k.delay = delay
+	k.delay, err = k.config.GetInterval()
+	if err != nil {
+		return err
+	}
 	go k.Heartbeat()
 
 	// Wait for any errors and log them
@@ -168,7 +158,11 @@ func (k *KeKahu) newRequest(method, endpoint string, body io.Reader) (*http.Requ
 	}
 
 	// Resolve the URL reference
-	url := k.url.ResolveReference(ep)
+	baseURL, err := k.config.GetURL()
+	if err != nil {
+		return nil, err
+	}
+	url := baseURL.ResolveReference(ep)
 
 	// Construct the request
 	req, err := http.NewRequest(method, url.String(), body)
@@ -177,7 +171,7 @@ func (k *KeKahu) newRequest(method, endpoint string, body io.Reader) (*http.Requ
 	}
 
 	// Add the headers
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", k.apikey))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", k.config.APIKey))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 

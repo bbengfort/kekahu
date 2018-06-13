@@ -15,9 +15,6 @@ import (
 // DefaultAddr is the default port that the server listens on.
 const DefaultAddr = ":3284"
 
-// DefaultPingTimeout to wait for an echo response from a server (e.g. TTL)
-const DefaultPingTimeout = time.Second * 10
-
 //===========================================================================
 // Echo Server
 //===========================================================================
@@ -124,8 +121,13 @@ func (k *KeKahu) Ping(source, target, addr string, seq uint64) (time.Duration, e
 
 	// Create the grpc client and send the ping
 	client := ping.NewEchoClient(conn)
+	timeout, err := k.config.GetPingTimeout()
+	if err != nil {
+		return 0, err
+	}
+
 	start := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), DefaultPingTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	if _, err = client.Ping(ctx, msg); err != nil {
