@@ -177,7 +177,7 @@ func (k *KeKahu) newRequest(method, endpoint string, body io.Reader) (*http.Requ
 	}
 
 	// Add the headers
-	req.Header.Set("X-Api-Key", k.apikey)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", k.apikey))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 

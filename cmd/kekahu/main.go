@@ -19,7 +19,7 @@ func main() {
 	// TODO: keep KeKahu version consistent with Kahu version
 	app := cli.NewApp()
 	app.Name = "kekahu"
-	app.Version = "1.1.2"
+	app.Version = "1.2"
 	app.Usage = "Keep alive client for the Kahu service"
 
 	app.Commands = []cli.Command{
