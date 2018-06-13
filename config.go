@@ -48,13 +48,13 @@ func FindConfigPath() (string, error) {
 // Config uses the multiconfig loader and validators to store configuration
 // values required for the kekahu service and to parse complex types.
 type Config struct {
-	Interval    string `default:"2m" validate:"duration"`                   // the delay between heartbeats
-	APIKey      string `required:"true" json:"api_key"`                     // API Key to access Kahu service
-	URL         string `default:"https://kahu.bengfort.com" validate:"url"` // Base URL of the Kahu service
-	Verbosity   int    `default:"2" validate:"uint"`                        // Log verbosity, lower is more verbose
-	PeersPath   string `default:"peers.json" validate:"path"`               // Path to save peers JSON file
-	APITimeout  string `default:"5s" validate:"duration"`                   // Timeout for API HTTP requests
-	PingTimeout string `default:"10s" validate:"duration"`                  // Timeout for ping GRPC requests
+	Interval    string `default:"2m" validate:"duration" json:"interval"`              // the delay between heartbeats
+	APIKey      string `required:"true" json:"api_key"`                                // API Key to access Kahu service
+	URL         string `default:"https://kahu.bengfort.com" validate:"url" json:"url"` // Base URL of the Kahu service
+	Verbosity   int    `default:"2" validate:"uint" json:"verbosity"`                  // Log verbosity, lower is more verbose
+	PeersPath   string `default:"peers.json" validate:"path" json:"peers_path"`        // Path to save peers JSON file
+	APITimeout  string `default:"5s" validate:"duration" json:"api_timeout"`           // Timeout for API HTTP requests
+	PingTimeout string `default:"10s" validate:"duration" json:"ping_timeout"`         // Timeout for ping GRPC requests
 }
 
 // Load the configuration from default values, then from a configuration file,

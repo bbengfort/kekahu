@@ -6,7 +6,7 @@ KeKahu is a client service for the [Kahu API](https://github.com/bbengfort/kahu)
 
 ## Getting Started
 
-As long as you have [go version 1.8](https://golang.org/dl/) or later installed you can get and install KeKahu as follows:
+As long as you have [go version 1.10](https://golang.org/dl/) or later installed you can get and install KeKahu as follows:
 
 ```
 $ go get github.com/bbengfort/kekahu/...
@@ -29,10 +29,24 @@ Most of KeKahu is configured through the environment, though command line option
 - `$KEKAHU_API_KEY`: the Kahu API key for this machine
 - `$KEKAHU_URL` (optional): url of the Kahu API
 - `$KEKAHU_INTERVAL` (optional): interval between heartbeats
-- `$KEKAHU_PID_PATH` (optional): path on disk to pid file
-- `$PEERS_PATH` (optional): location on disk to store network peers
 
-Once these environment variables are set, you can use the kekahu application. For example, to synchronize network peers:
+Further configuration can be specified by a JSON, YAML, or TOML file in either `/etc/kekahu.json` or `~/.kekahu.json` (with the appropriate extension). An example configuration is as follows:
+
+```json
+{
+  "interval": "20s",
+  "api_key": "mysupersecretkey",
+  "url": "https://kahu.io",
+  "verbosity": 2,
+  "peers_path": "peers.json",
+  "api_timeout": "5s",
+  "ping_timeout": "10s"
+}
+```
+
+Note that KeKahu won't run without an API key.
+
+Once the configuration is set, you can use the `kekahu` application. For example, to synchronize network peers:
 
 ```
 $ kekahu sync
@@ -49,10 +63,7 @@ Documentation=https://github.com/bbengfort/kekahu
 
 [Service]
 Type=simple
-Environment=KEKAHU_API_KEY=mykey
-Environment=KEKAHU_URL=myurl
-Environment=KEKAHU_INTERVAL=myinterval
-Environment=PEERS_PATH=mypath
+Environment=KEKAHU_API_KEY=mysupersecretkey
 ExecStart=/usr/local/bin/kekahu start
 Restart=on-abort
 
@@ -64,12 +75,12 @@ Now reload the services and enable the kekahu service:
 
 ```
 $ sudo systemctl enable kekahu
+$ sudo systemctl daemon-reload
 ```
 
 The service can be managed with the `start`, `stop`, `reload`, and `status` commands as follows:
 
 ```
-$ sudo systemctl daemon-reload
 $ sudo systemctl start kekahu
 ```
 
@@ -106,15 +117,6 @@ We can also run kekahu as a user-agent on OS X - meaning that it will only run w
     <dict>
         <key>KEKAHU_API_KEY</key>
         <string>mykey</string>
-
-        <key>KEKAHU_URL</key>
-        <string>myurl</string>
-
-        <key>KEKAHU_INTERVAL</key>
-        <string>myinterval</string>
-
-        <key>PEERS_PATH</key>
-        <string>mypath</string>
     </dict>
 
     <key>StandardOutPath</key>
