@@ -3,6 +3,7 @@ package kekahu
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"time"
@@ -20,8 +21,10 @@ import (
 func (k *KeKahu) Heartbeat() {
 	trace("executing heartbeat")
 
-	// Schedule the next heartbeat after this function is complete
-	defer time.AfterFunc(k.delay, k.Heartbeat)
+	// Schedule the next heartbeat after this function is complete with a
+	// random amount of jitter before or after the heartbeat delay to ensure
+	// that not all replicas are reporting in at the exact same time.
+	defer time.AfterFunc(k.getHeartbeatTimeout(), k.Heartbeat)
 
 	// Compose JSON to post
 	data := new(HeartbeatRequest)
@@ -67,6 +70,24 @@ func (k *KeKahu) Heartbeat() {
 		go k.Latency(true)
 	}
 
+}
+
+func (k *KeKahu) getHeartbeatTimeout() time.Duration {
+	if k.jitter == 0 {
+		return k.delay
+	}
+
+	// Compute the range for selecting a duration
+	minv := int64(k.delay) - int64(k.jitter)
+	maxv := int64(k.delay) + int64(k.jitter)
+
+	// If the floor of the range is zero, then make the floor the delay
+	if minv <= 0 {
+		minv = int64(k.delay)
+	}
+
+	// Return the duration
+	return time.Duration(rand.Int63n((maxv - minv) + minv))
 }
 
 //===========================================================================

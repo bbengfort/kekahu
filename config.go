@@ -49,6 +49,7 @@ func FindConfigPath() (string, error) {
 // values required for the kekahu service and to parse complex types.
 type Config struct {
 	Interval    string `default:"2m" validate:"duration" json:"interval"`              // the delay between heartbeats
+	Jitter      string `default:"30s" validate:"duration" json:"jitter"`               // random jitter to add before or after interval
 	APIKey      string `required:"true" json:"api_key"`                                // API Key to access Kahu service
 	URL         string `default:"https://kahu.bengfort.com" validate:"url" json:"url"` // Base URL of the Kahu service
 	Verbosity   int    `default:"2" validate:"uint" json:"verbosity"`                  // Log verbosity, lower is more verbose
@@ -131,6 +132,11 @@ func (c *Config) GetURL() (*url.URL, error) {
 // GetInterval parses the interval duration and returns it
 func (c *Config) GetInterval() (time.Duration, error) {
 	return time.ParseDuration(c.Interval)
+}
+
+// GetJitter parses the jitter duration and returns it
+func (c *Config) GetJitter() (time.Duration, error) {
+	return time.ParseDuration(c.Jitter)
 }
 
 // GetAPITimeout parses the api timeout duration and returns it

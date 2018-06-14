@@ -64,7 +64,7 @@ Documentation=https://github.com/bbengfort/kekahu
 [Service]
 Type=simple
 Environment=KEKAHU_API_KEY=mysupersecretkey
-ExecStart=/usr/local/bin/kekahu start
+ExecStart=/usr/local/bin/kekahu run
 Restart=on-abort
 
 [Install]

@@ -28,7 +28,7 @@ const (
 // Initialize the package and random numbers, etc.
 func init() {
 	// Set the random seed to something different each time.
-	rand.Seed(time.Now().Unix())
+	rand.Seed(time.Now().UnixNano())
 
 	// Initialize our debug logging with our prefix
 	logger = log.New(os.Stdout, "[kekahu] ", log.Lmicroseconds)
@@ -83,6 +83,7 @@ type KeKahu struct {
 	client  *http.Client  // HTTP client to perform requests
 	server  *Server       // Echo server to respond to ping requests
 	delay   time.Duration // Interval between Heartbeats
+	jitter  time.Duration // Range before and after interval to jitter the heartbeat
 	echan   chan error    // Channel to listen for non-fatal errors on
 	done    chan bool     // Channel to listen for shutdown signal
 	network *Network      // Ping latency to other peers in the network
@@ -107,6 +108,10 @@ func (k *KeKahu) Run() (err error) {
 
 	// Start the heartbeat
 	k.delay, err = k.config.GetInterval()
+	if err != nil {
+		return err
+	}
+	k.jitter, err = k.config.GetJitter()
 	if err != nil {
 		return err
 	}
