@@ -1,0 +1,11 @@
+[Unit]
+Description=KeKahu Service
+Documentation=https://github.com/bbengfort/kekahu
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/kekahu run
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target

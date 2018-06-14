@@ -100,16 +100,6 @@ func (c *Config) Load() error {
 
 // Update the configuration from another configuration struct
 func (c *Config) Update(o *Config) error {
-	// First validate the other config
-	validators := multiconfig.MultiValidator(
-		&multiconfig.RequiredValidator{},
-		&ComplexValidator{},
-	)
-
-	if err := validators.Validate(o); err != nil {
-		return err
-	}
-
 	conf := structs.New(c)
 
 	// Then update the current config with values from the other config
@@ -118,6 +108,16 @@ func (c *Config) Update(o *Config) error {
 			updateField := conf.Field(field.Name())
 			updateField.Set(field.Value())
 		}
+	}
+
+	// Validate the newly updated config
+	validators := multiconfig.MultiValidator(
+		&multiconfig.RequiredValidator{},
+		&ComplexValidator{},
+	)
+
+	if err := validators.Validate(c); err != nil {
+		return err
 	}
 
 	return nil
