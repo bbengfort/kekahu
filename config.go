@@ -52,7 +52,7 @@ type Config struct {
 	Jitter      string `default:"30s" validate:"duration" json:"jitter"`               // random jitter to add before or after interval
 	APIKey      string `required:"true" json:"api_key"`                                // API Key to access Kahu service
 	URL         string `default:"https://kahu.bengfort.com" validate:"url" json:"url"` // Base URL of the Kahu service
-	Verbosity   int    `default:"2" validate:"uint" json:"verbosity"`                  // Log verbosity, lower is more verbose
+	Verbosity   int    `default:"3" validate:"uint" json:"verbosity"`                  // Log verbosity, lower is more verbose
 	PeersPath   string `default:"peers.json" validate:"path" json:"peers_path"`        // Path to save peers JSON file
 	APITimeout  string `default:"5s" validate:"duration" json:"api_timeout"`           // Timeout for API HTTP requests
 	PingTimeout string `default:"10s" validate:"duration" json:"ping_timeout"`         // Timeout for ping GRPC requests

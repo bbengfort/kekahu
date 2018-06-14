@@ -123,9 +123,10 @@ def update_config():
 
     config = {
       "interval": "2m",
+      "jitter": "30s",
       "api_key": api_key,
       "url": "https://kahu.bengfort.com",
-      "verbosity": 2,
+      "verbosity": 3,
       "peers_path": "/data/peers.json",
       "api_timeout": "5s",
       "ping_timeout": "10s"
