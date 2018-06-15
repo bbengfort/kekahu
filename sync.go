@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/bbengfort/x/peers"
 )
@@ -33,9 +34,18 @@ func (k *KeKahu) Sync(path string) error {
 	defer res.Body.Close()
 
 	// Parse the JSON into a peers struct
-	peers := new(peers.Peers)
-	if err := json.NewDecoder(res.Body).Decode(&peers); err != nil {
+	replicas := make([]*peers.Peer, 0)
+	if err := json.NewDecoder(res.Body).Decode(&replicas); err != nil {
 		return fmt.Errorf("could not parse Kahu response %s", err)
+	}
+
+	info := make(map[string]interface{})
+	info["num_replicas"] = len(replicas)
+	info["updated"] = time.Now()
+
+	peers := &peers.Peers{
+		Info:  info,
+		Peers: replicas,
 	}
 
 	// Save the peers to disk at the specified path
