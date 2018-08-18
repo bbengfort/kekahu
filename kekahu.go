@@ -13,6 +13,9 @@ import (
 	"time"
 )
 
+// PackageVersion of the KeKahu application
+const PackageVersion = "1.5"
+
 // Endpoints on the Kahu RESTful API
 const (
 	HeartbeatEndpoint = "/api/heartbeat/"

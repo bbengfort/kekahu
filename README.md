@@ -131,3 +131,4 @@ We can also run kekahu as a user-agent on OS X - meaning that it will only run w
 ## Notes
 
 - [go install vs build](https://pocketgophers.com/go-install-vs-go-build/)
+- [Linux load averages](http://www.brendangregg.com/blog/2017-08-08/linux-load-averages.html)
