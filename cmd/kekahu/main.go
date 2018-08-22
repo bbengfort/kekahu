@@ -113,6 +113,11 @@ func main() {
 			Usage:  "print the current KeKahu configuration",
 			Action: config,
 		},
+		{
+			Name:   "health",
+			Usage:  "print out KeKahu's view of the system status",
+			Action: health,
+		},
 	}
 
 	// Run the CLI program
@@ -197,5 +202,21 @@ func ping(c *cli.Context) error {
 	data, _ := json.MarshalIndent(metrics, "", "  ")
 	fmt.Println(string(data))
 
+	return nil
+}
+
+// Perform a health check and view the system status
+func health(c *cli.Context) error {
+	status, err := kekahu.HealthCheck(true)
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+
+	data, err := status.Dump(2)
+	if err != nil {
+		return cli.NewExitError("couldn't dump status to JSON", 1)
+	}
+
+	fmt.Println(string(data))
 	return nil
 }
