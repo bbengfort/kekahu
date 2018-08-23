@@ -45,6 +45,7 @@ load_dotenv(find_dotenv())
 ## Local paths
 FIXTURES = os.path.join(os.path.dirname(__file__), "data")
 HOSTINFO = os.path.join(FIXTURES, "hosts.json")
+SSHCONF  = os.path.expanduser("~/.ssh/geonet.config")
 TOKENS   = os.path.join(FIXTURES, "tokens.json")
 SERVICE  = os.path.join(FIXTURES, "kekahu.service")
 
@@ -60,6 +61,7 @@ addrs = {info['hostname']: host for host, info in hosts.items()}
 
 ## Fabric Env
 env.user = "ubuntu"
+env.ssh_config_path = SSHCONF
 env.hosts = sorted(list(hosts.keys()))
 env.colorize_errors = True
 env.use_ssh_config = True
@@ -128,8 +130,9 @@ def update_config():
       "url": "https://kahu.bengfort.com",
       "verbosity": 3,
       "peers_path": "/data/peers.json",
-      "api_timeout": "5s",
-      "ping_timeout": "10s"
+      "api_timeout": "30s",
+      "ping_timeout": "10s",
+      "send_health": True, 
     }
 
     config = StringIO(json.dumps(config, indent=2))
