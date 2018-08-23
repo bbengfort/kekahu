@@ -70,6 +70,10 @@ func (k *KeKahu) Heartbeat() {
 		go k.Latency(true)
 	}
 
+	// If we're sending health checks, then send the health report
+	if k.config.SendHealth {
+		go k.Health()
+	}
 }
 
 func (k *KeKahu) getHeartbeatTimeout() time.Duration {

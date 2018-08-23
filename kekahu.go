@@ -14,7 +14,7 @@ import (
 )
 
 // PackageVersion of the KeKahu application
-const PackageVersion = "1.5"
+const PackageVersion = "1.6"
 
 // Endpoints on the Kahu RESTful API
 const (
@@ -22,6 +22,7 @@ const (
 	LatencyEndpoint   = "/api/latency/"
 	NeighborsEndpoint = "/api/latency/neighbors/"
 	ReplicasEndpoint  = "/api/replicas/"
+	HealthEndpoint    = "/api/health/"
 )
 
 //===========================================================================
@@ -198,7 +199,7 @@ func (k *KeKahu) doRequest(req *http.Request) (*http.Response, error) {
 	debug("%s %s %s", req.Method, req.URL.String(), res.Status)
 
 	// Check the status from the client
-	if res.StatusCode != 200 {
+	if res.StatusCode < 200 || res.StatusCode > 299 {
 		res.Body.Close()
 		return res, fmt.Errorf("could not access Kahu service: %s", res.Status)
 	}

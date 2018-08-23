@@ -56,6 +56,7 @@ type Config struct {
 	PeersPath   string `default:"peers.json" validate:"path" json:"peers_path"`        // Path to save peers JSON file
 	APITimeout  string `default:"5s" validate:"duration" json:"api_timeout"`           // Timeout for API HTTP requests
 	PingTimeout string `default:"10s" validate:"duration" json:"ping_timeout"`         // Timeout for ping GRPC requests
+	SendHealth  bool   `default:"true" json:"send_health"`                             // Send system health to Kahu
 }
 
 // Load the configuration from default values, then from a configuration file,
